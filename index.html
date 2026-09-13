@@ -1,0 +1,1951 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070B16">
+<meta name="description" content="Bumper Pitch - a 3D arcade car football game. Drive, jump, flip and boost a giant ball into the net.">
+<meta property="og:title" content="Bumper Pitch">
+<meta property="og:description" content="3D arcade car football. Drive, jump, flip and boost a giant ball into the net.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E">
+<title>Bumper Pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --ink:#070B16;
+    --ink-2:#0B1322;
+    --panel:#101A2E;
+    --panel-2:#16233B;
+    --edge:rgba(150,178,224,.18);
+    --chalk:#E9EEF8;
+    --muted:#8FA0C2;
+    --blaze:#FF6B2C;
+    --frost:#2EA8FF;
+    --amber:#FFC24B;
+    --display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+    --ui:"Barlow Semi Condensed","Segoe UI",system-ui,sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  img{max-width:100%}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--chalk);
+    font-family:var(--ui);
+    overflow:hidden;
+    overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #stage{position:fixed;inset:0}
+  canvas#gl{display:block;width:100%;height:100%;background:var(--ink)}
+
+  /* ---------- shared bits ---------- */
+  .eyebrow{
+    font-family:var(--ui);
+    font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+
+  .scorebar{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:stretch;gap:0;
+    background:linear-gradient(180deg,rgba(16,26,46,.94),rgba(11,19,34,.94));
+    border:1px solid var(--edge);
+    border-radius:4px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    overflow:hidden;
+    font-family:var(--display);
+  }
+  .side{display:flex;align-items:center;gap:10px;padding:8px 14px}
+  .side .tag{font-size:12px;letter-spacing:.18em;font-weight:600}
+  .side .num{font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .side.blaze{border-bottom:3px solid var(--blaze)}
+  .side.blaze .tag{color:var(--blaze)}
+  .side.frost{border-bottom:3px solid var(--frost)}
+  .side.frost .tag{color:var(--frost)}
+  .clockbox{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;padding:7px 18px;min-width:104px;
+    background:rgba(7,11,22,.7);
+    border-left:1px solid var(--edge);border-right:1px solid var(--edge);
+  }
+  .clockbox .t{font-size:25px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .clockbox .lbl{font-family:var(--ui);font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+  .clockbox.ot .t{color:var(--amber)}
+
+  .boost{
+    position:absolute;bottom:22px;width:168px;
+    display:flex;flex-direction:column;gap:5px;
+  }
+  .boost.left{left:22px}
+  .boost.right{right:22px;align-items:flex-end}
+  .boost .cap{display:flex;gap:8px;align-items:baseline;font-size:11px;letter-spacing:.2em;font-weight:600;text-transform:uppercase;color:var(--muted)}
+  .boost .track{
+    width:100%;height:9px;background:rgba(7,11,22,.8);
+    border:1px solid var(--edge);border-radius:2px;overflow:hidden;
+  }
+  .boost .fill{height:100%;width:100%;transform-origin:left center;transition:background .2s}
+  .boost.right .fill{transform-origin:right center}
+  .boost.left .fill{background:linear-gradient(90deg,#C43F00,var(--blaze),#FFA14B)}
+  .boost.right .fill{background:linear-gradient(270deg,#0C5EA0,var(--frost),#7FD0FF)}
+
+  .callout{
+    position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;font-family:var(--display);font-weight:700;
+    text-shadow:0 6px 30px rgba(0,0,0,.7);
+  }
+  .callout .big{font-size:clamp(54px,12vw,120px);line-height:.95;letter-spacing:.01em}
+  .callout .sub{font-family:var(--ui);font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+
+  .tipline{
+    position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    background:rgba(7,11,22,.72);border:1px solid var(--edge);border-radius:3px;
+    padding:6px 14px;white-space:nowrap;
+  }
+
+  /* ---------- overlay / panels ---------- */
+  #overlay{
+    position:fixed;inset:0;z-index:20;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(7,11,22,.35),rgba(7,11,22,.86));
+    backdrop-filter:blur(2px);
+    overflow:auto;
+  }
+  .panel{
+    width:min(560px,100%);
+    background:linear-gradient(180deg,rgba(22,35,59,.97),rgba(11,19,34,.97));
+    border:1px solid var(--edge);
+    border-top:3px solid var(--blaze);
+    border-radius:6px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);
+    padding:26px 26px 22px;
+  }
+  .panel h1{
+    font-family:var(--display);font-weight:700;
+    font-size:clamp(38px,7vw,60px);line-height:.94;margin:6px 0 8px;
+    letter-spacing:-.01em;text-wrap:balance;
+  }
+  .panel h1 .b{color:var(--blaze)}
+  .panel h1 .f{color:var(--frost)}
+  .lede{color:var(--muted);font-size:15px;line-height:1.5;max-width:46ch;margin:0 0 20px}
+
+  .setup{display:flex;flex-direction:column;gap:14px;margin-bottom:20px}
+  .row{display:flex;flex-direction:column;gap:7px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{
+    flex:1 1 0;min-width:82px;
+    font-family:var(--ui);font-size:13px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);
+    background:rgba(7,11,22,.6);
+    border:1px solid var(--edge);border-radius:3px;
+    padding:9px 10px;cursor:pointer;
+    transition:color .15s,border-color .15s,background .15s;
+  }
+  .seg button:hover{color:var(--chalk);border-color:rgba(150,178,224,.4)}
+  .seg button[aria-pressed="true"]{
+    color:var(--ink);background:var(--chalk);border-color:var(--chalk);
+  }
+  .seg button:focus-visible,.play:focus-visible,.ghost:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  .play{
+    width:100%;
+    font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:#1A0800;
+    background:linear-gradient(180deg,#FF8A45,var(--blaze));
+    border:none;border-radius:4px;padding:15px;cursor:pointer;
+    box-shadow:0 8px 24px rgba(255,107,44,.28);
+    transition:transform .12s,box-shadow .12s,filter .12s;
+  }
+  .play:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(255,107,44,.38);filter:brightness(1.05)}
+  .play:active{transform:translateY(1px)}
+
+  .ghost{
+    font-family:var(--ui);font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);background:none;border:1px solid var(--edge);border-radius:3px;
+    padding:11px 18px;cursor:pointer;transition:color .15s,border-color .15s;
+  }
+  .ghost:hover{color:var(--chalk);border-color:rgba(150,178,224,.45)}
+
+  .keys{
+    margin-top:20px;padding-top:16px;border-top:1px solid var(--edge);
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 22px;
+  }
+  .keys dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:baseline}
+  .keys dt{margin:0}
+  .keys dd{margin:0;color:var(--muted);font-size:13px}
+  kbd{
+    font-family:var(--display);font-size:11px;font-weight:600;
+    background:rgba(7,11,22,.8);border:1px solid var(--edge);border-bottom-width:2px;
+    border-radius:3px;padding:2px 6px;color:var(--chalk);white-space:nowrap;
+  }
+  .keyhead{font-family:var(--display);font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 8px}
+  .keyhead.b{color:var(--blaze)}
+  .keyhead.f{color:var(--frost)}
+
+  /* result panel */
+  .result .line{
+    display:flex;align-items:center;justify-content:center;gap:20px;
+    font-family:var(--display);font-weight:700;margin:6px 0 18px;
+  }
+  .result .line .s{font-size:66px;line-height:1;font-variant-numeric:tabular-nums}
+  .result .line .s.b{color:var(--blaze)}
+  .result .line .s.f{color:var(--frost)}
+  .result .line .dash{color:var(--muted);font-size:32px}
+  .result .btns{display:flex;gap:10px;margin-top:4px}
+  .result .btns .play{flex:2}
+  .result .btns .ghost{flex:1}
+  .statgrid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+    background:var(--edge);border:1px solid var(--edge);border-radius:4px;overflow:hidden;margin-bottom:20px;
+  }
+  .statgrid div{background:var(--panel);padding:11px 12px;text-align:center}
+  .statgrid .v{font-family:var(--display);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .statgrid .k{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+
+  /* ---------- sound toggle ---------- */
+  .mute{
+    position:fixed;top:14px;right:14px;z-index:40;
+    width:38px;height:38px;display:grid;place-items:center;
+    background:rgba(16,26,46,.85);border:1px solid var(--edge);border-radius:4px;
+    color:var(--chalk);cursor:pointer;padding:0;
+    transition:border-color .15s,color .15s;
+  }
+  .mute:hover{border-color:rgba(150,178,224,.45);color:#fff}
+  .mute:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .mute svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .mute .spk{fill:currentColor;stroke:none}
+  .mute .x{display:none}
+  .mute.off .w1,.mute.off .w2{display:none}
+  .mute.off .x{display:inline}
+  .mute.off{color:var(--muted)}
+
+  /* ---------- touch ---------- */
+  #touch{position:fixed;inset:0;z-index:15;pointer-events:none;display:none}
+  #touch.on{display:block}
+  .pad{
+    position:absolute;pointer-events:auto;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.1em;
+    color:var(--chalk);
+    background:rgba(16,26,46,.6);border:1px solid var(--edge);
+    border-radius:50%;width:70px;height:70px;
+    touch-action:none;
+  }
+  .pad.wide{border-radius:8px;width:84px;height:62px}
+  .pad.act{background:rgba(255,107,44,.55);border-color:var(--blaze)}
+  #tLeft{left:18px;bottom:96px}
+  #tRight{left:100px;bottom:96px}
+  #tGo{right:18px;bottom:96px}
+  #tBack{right:100px;bottom:96px}
+  #tJump{right:18px;bottom:20px}
+  #tBoost{right:112px;bottom:20px}
+
+  @media (max-width:560px){
+    .scorebar{top:8px;transform:translateX(-50%) scale(.85);transform-origin:top center}
+    .boost{width:120px;bottom:16px}
+    .tipline{display:none}
+    .panel{padding:20px 18px 18px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+
+<div id="stage"><canvas id="gl"></canvas></div>
+
+<div id="hud" hidden>
+  <div class="scorebar">
+    <div class="side blaze"><span class="tag">BLAZE</span><span class="num" id="scoreA">0</span></div>
+    <div class="clockbox" id="clockbox"><span class="t" id="clock">3:00</span><span class="lbl" id="clockLbl">Match</span></div>
+    <div class="side frost"><span class="num" id="scoreB">0</span><span class="tag">FROST</span></div>
+  </div>
+
+  <div class="boost left">
+    <div class="cap"><span id="boostName1">Boost</span></div>
+    <div class="track"><div class="fill" id="boostFill1"></div></div>
+  </div>
+  <div class="boost right" id="boostWrap2" hidden>
+    <div class="cap"><span>Boost</span></div>
+    <div class="track"><div class="fill" id="boostFill2"></div></div>
+  </div>
+
+  <div class="callout" id="callout" hidden>
+    <div class="big" id="calloutBig">3</div>
+    <div class="sub" id="calloutSub"></div>
+  </div>
+
+  <div class="tipline" id="tip" hidden></div>
+</div>
+
+<button class="mute" id="muteBtn" aria-pressed="false" aria-label="Turn sound off" title="Sound on/off (M)">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path class="spk" d="M4 9.5h3.2L12 5.5v13L7.2 14.5H4z"></path>
+    <path class="w1" d="M15.4 9.4a3.8 3.8 0 0 1 0 5.2"></path>
+    <path class="w2" d="M18.1 6.9a7.4 7.4 0 0 1 0 10.2"></path>
+    <path class="x" d="M16 9.5l5.5 5M21.5 9.5l-5.5 5"></path>
+  </svg>
+</button>
+
+<div id="touch">
+  <div class="pad" id="tLeft">◀</div>
+  <div class="pad" id="tRight">▶</div>
+  <div class="pad wide" id="tBack">REV</div>
+  <div class="pad wide" id="tGo">GO</div>
+  <div class="pad" id="tJump">JUMP</div>
+  <div class="pad" id="tBoost">BOOST</div>
+</div>
+
+<div id="overlay">
+  <div class="panel" id="menuPanel">
+    <p class="eyebrow">Arcade car football · one pitch, two bumpers</p>
+    <h1>Bumper <span class="b">Pitch</span></h1>
+    <p class="lede">Drive a car. Shove a giant ball into a giant goal. Jump, flip and boost your way to a better angle — no rules, no offside, no referee.</p>
+
+    <div class="setup">
+      <div class="row">
+        <span class="eyebrow">Players</span>
+        <div class="seg" data-opt="mode">
+          <button data-value="solo" aria-pressed="true">Solo vs Bot</button>
+          <button data-value="duo" aria-pressed="false">2 Players · Split Screen</button>
+        </div>
+      </div>
+      <div class="row" id="rowSkill">
+        <span class="eyebrow">Bot skill</span>
+        <div class="seg" data-opt="skill">
+          <button data-value="rookie" aria-pressed="false">Rookie</button>
+          <button data-value="pro" aria-pressed="true">Pro</button>
+          <button data-value="menace" aria-pressed="false">Menace</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="eyebrow">Match length</span>
+        <div class="seg" data-opt="length">
+          <button data-value="120" aria-pressed="false">2 min</button>
+          <button data-value="180" aria-pressed="true">3 min</button>
+          <button data-value="300" aria-pressed="false">5 min</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="play" id="startBtn">Kick Off</button>
+
+    <div class="keys">
+      <div>
+        <p class="keyhead b" id="p1head">Blaze — you</p>
+        <dl>
+          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Drive &amp; steer</dd>
+          <dt><kbd>Space</kbd></dt><dd>Jump · twice to flip</dd>
+          <dt><kbd>Shift</kbd></dt><dd>Boost</dd>
+          <dt><kbd>C</kbd></dt><dd>Ball cam on/off</dd>
+          <dt><kbd>M</kbd></dt><dd>Sound on/off</dd>
+        </dl>
+      </div>
+      <div id="p2keys" hidden>
+        <p class="keyhead f">Frost — player 2</p>
+        <dl>
+          <dt><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>Drive &amp; steer</dd>
+          <dt><kbd>Enter</kbd></dt><dd>Jump · twice to flip</dd>
+          <dt><kbd>R Shift</kbd></dt><dd>Boost</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Pause</dd>
+        </dl>
+      </div>
+      <div id="p1extra">
+        <p class="keyhead" style="color:var(--muted)">Also</p>
+        <dl>
+          <dt><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>Drive &amp; steer</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Pause</dd>
+          <dt><kbd>R</kbd></dt><dd>Reset your car</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel result" id="resultPanel" hidden>
+    <p class="eyebrow" id="resEyebrow">Full time</p>
+    <h1 id="resTitle">Blaze wins</h1>
+    <div class="line">
+      <span class="s b" id="resA">0</span><span class="dash">—</span><span class="s f" id="resB">0</span>
+    </div>
+    <div class="statgrid">
+      <div><div class="v tnum" id="statShots">0</div><div class="k">Touches</div></div>
+      <div><div class="v tnum" id="statTop">0</div><div class="k">Top speed km/h</div></div>
+      <div><div class="v tnum" id="statBoost">0</div><div class="k">Boost used</div></div>
+    </div>
+    <div class="btns">
+      <button class="play" id="againBtn">Rematch</button>
+      <button class="ghost" id="menuBtn">Menu</button>
+    </div>
+  </div>
+
+  <div class="panel" id="pausePanel" hidden>
+    <p class="eyebrow">Paused</p>
+    <h1>Take a breath</h1>
+    <p class="lede">The ball is not going anywhere without you.</p>
+    <div class="btns" style="display:flex;gap:10px">
+      <button class="play" id="resumeBtn" style="flex:2">Resume</button>
+      <button class="ghost" id="quitBtn" style="flex:1">Quit match</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V3 = THREE.Vector3;
+
+  /* ============================================================
+     ARENA + PHYSICS CONSTANTS  (units are metres, roughly)
+     ============================================================ */
+  var HX = 46, HZ = 30;          // half length (x) / half width (z) of the pitch
+  var WALL = 15, CEIL = 24;      // wall height / ceiling height
+  var GZ = 9.5, GH = 8, GD = 7;  // goal half-width / height / depth
+  var BR = 1.75;                 // ball radius
+  var GRAV = 30;
+
+  var CAR = { hl: 2.0, hw: 1.0, hh: 0.62, y: 0.86, r: 2.15 };
+  var ACC = 42, REV = 26, BOOST_ACC = 70;
+  var V_MAX = 33, V_BOOST = 48, COAST = 1.0, GRIP = 9.5;
+  var TURN = 2.55, AIR_TURN = 1.9;
+  var JUMP_V = 12.5, FLIP_V = 10.0, FLIP_PUSH = 18;
+  var BOOST_MAX = 100, BOOST_DRAIN = 30, BOOST_REGEN = 13;
+
+  var BALL_REST = 0.62, WALL_REST = 0.75, BALL_DRAG = 0.28, ROLL = 0.45;
+  var BALL_MAX = 78;
+
+  /* ============================================================
+     RENDERER / SCENE
+     ============================================================ */
+  var canvas = document.getElementById("gl");
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x070b16, 1);
+
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x070b16, 70, 230);
+
+  var camA = new THREE.PerspectiveCamera(62, 1, 0.5, 600);
+  var camB = new THREE.PerspectiveCamera(62, 1, 0.5, 600);
+  camA.position.set(-60, 30, 0); camA.lookAt(0, 2, 0);
+  camB.position.set(60, 30, 0); camB.lookAt(0, 2, 0);
+
+  // --- lights -------------------------------------------------
+  scene.add(new THREE.HemisphereLight(0x9ec0ff, 0x101f19, 0.62));
+  var sun = new THREE.DirectionalLight(0xffffff, 1.05);
+  sun.position.set(48, 86, 34);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  var sc = sun.shadow.camera;
+  sc.left = -70; sc.right = 70; sc.top = 55; sc.bottom = -55; sc.near = 20; sc.far = 220;
+  sun.shadow.bias = -0.0012;
+  scene.add(sun);
+  scene.add(sun.target);
+
+  var endLightA = new THREE.PointLight(0xff6b2c, 1.5, 90, 2); endLightA.position.set(-HX + 4, 14, 0); scene.add(endLightA);
+  var endLightB = new THREE.PointLight(0x2ea8ff, 1.5, 90, 2); endLightB.position.set(HX - 4, 14, 0); scene.add(endLightB);
+
+  /* ============================================================
+     TEXTURES drawn on the fly (pitch markings, net, ball panels)
+     ============================================================ */
+  function pitchTexture() {
+    var S = 9, c = document.createElement("canvas");
+    c.width = (HX * 2) * S; c.height = (HZ * 2) * S;
+    var g = c.getContext("2d");
+    var px = function (x) { return (x + HX) * S; };
+    var pz = function (z) { return (z + HZ) * S; };
+
+    g.fillStyle = "#153a32"; g.fillRect(0, 0, c.width, c.height);
+    // mow stripes
+    for (var i = 0; i < 14; i++) {
+      if (i % 2) continue;
+      g.fillStyle = "rgba(255,255,255,.028)";
+      g.fillRect(px(-HX + i * (HX * 2 / 14)), 0, (HX * 2 / 14) * S, c.height);
+    }
+    // end-zone tints
+    var ga = g.createLinearGradient(0, 0, px(-HX + 26), 0);
+    ga.addColorStop(0, "rgba(255,107,44,.16)"); ga.addColorStop(1, "rgba(255,107,44,0)");
+    g.fillStyle = ga; g.fillRect(0, 0, px(-HX + 26), c.height);
+    var gb = g.createLinearGradient(c.width, 0, px(HX - 26), 0);
+    gb.addColorStop(0, "rgba(46,168,255,.16)"); gb.addColorStop(1, "rgba(46,168,255,0)");
+    g.fillStyle = gb; g.fillRect(px(HX - 26), 0, c.width, c.height);
+
+    g.strokeStyle = "rgba(233,238,248,.72)"; g.lineWidth = 0.35 * S; g.lineCap = "round";
+    // halfway line + centre circle
+    g.beginPath(); g.moveTo(px(0), pz(-HZ)); g.lineTo(px(0), pz(HZ)); g.stroke();
+    g.beginPath(); g.arc(px(0), pz(0), 10 * S, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(px(0), pz(0), 0.9 * S, 0, Math.PI * 2); g.fillStyle = "rgba(233,238,248,.72)"; g.fill();
+    // touchlines
+    g.strokeRect(px(-HX + 1), pz(-HZ + 1), (HX * 2 - 2) * S, (HZ * 2 - 2) * S);
+    // goal areas
+    [-1, 1].forEach(function (s) {
+      var d = 15;
+      g.beginPath();
+      g.moveTo(px(s * HX), pz(-16));
+      g.lineTo(px(s * (HX - d)), pz(-16));
+      g.lineTo(px(s * (HX - d)), pz(16));
+      g.lineTo(px(s * HX), pz(16));
+      g.stroke();
+      // penalty spot
+      g.beginPath(); g.arc(px(s * (HX - 10)), pz(0), 0.6 * S, 0, Math.PI * 2); g.fill();
+    });
+    // corner arcs
+    [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(function (p) {
+      g.beginPath();
+      g.arc(px(p[0] * (HX - 1)), pz(p[1] * (HZ - 1)), 3 * S, 0, Math.PI * 2);
+      g.stroke();
+    });
+
+    var t = new THREE.CanvasTexture(c);
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  function netTexture() {
+    var c = document.createElement("canvas"); c.width = c.height = 128;
+    var g = c.getContext("2d");
+    g.clearRect(0, 0, 128, 128);
+    g.strokeStyle = "rgba(220,232,255,.55)"; g.lineWidth = 2;
+    for (var i = 0; i <= 128; i += 16) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke();
+      g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke();
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function ballTexture() {
+    var c = document.createElement("canvas"); c.width = 512; c.height = 256;
+    var g = c.getContext("2d");
+    g.fillStyle = "#f2f5fb"; g.fillRect(0, 0, 512, 256);
+    g.fillStyle = "#182338";
+    var spots = [[64, 60], [192, 60], [320, 60], [448, 60], [0, 190], [128, 190], [256, 190], [384, 190], [512, 190], [128, 128], [384, 128]];
+    spots.forEach(function (p) {
+      g.beginPath();
+      for (var k = 0; k < 5; k++) {
+        var a = -Math.PI / 2 + k * Math.PI * 2 / 5;
+        var x = p[0] + Math.cos(a) * 30, y = p[1] + Math.sin(a) * 30;
+        if (k === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.closePath(); g.fill();
+    });
+    g.strokeStyle = "rgba(24,35,56,.35)"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(0, 128); g.lineTo(512, 128); g.stroke();
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  /* ============================================================
+     ARENA GEOMETRY
+     ============================================================ */
+  var floorMat = new THREE.MeshStandardMaterial({ map: pitchTexture(), roughness: 0.94, metalness: 0.0 });
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // glass walls
+  var glassMat = new THREE.MeshStandardMaterial({
+    color: 0x4d7bb5, transparent: true, opacity: 0.1,
+    roughness: 0.15, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false
+  });
+  function wall(w, h, x, y, z, ry) {
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMat);
+    m.position.set(x, y, z); m.rotation.y = ry || 0;
+    scene.add(m); return m;
+  }
+  wall(HX * 2, WALL, 0, WALL / 2, -HZ, 0);
+  wall(HX * 2, WALL, 0, WALL / 2, HZ, 0);
+  wall(HZ * 2, WALL, -HX, WALL / 2, 0, Math.PI / 2);
+  wall(HZ * 2, WALL, HX, WALL / 2, 0, Math.PI / 2);
+
+  // kick plates + top rails
+  function rail(len, x, y, z, ry, color) {
+    var m = new THREE.Mesh(
+      new THREE.BoxGeometry(len, 0.45, 0.45),
+      new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.75, roughness: 0.4 })
+    );
+    m.position.set(x, y, z); m.rotation.y = ry || 0; scene.add(m);
+  }
+  rail(HX * 2, 0, WALL, -HZ, 0, 0x35507d);
+  rail(HX * 2, 0, WALL, HZ, 0, 0x35507d);
+  rail(HZ * 2, -HX, WALL, 0, Math.PI / 2, 0xff6b2c);
+  rail(HZ * 2, HX, WALL, 0, Math.PI / 2, 0x2ea8ff);
+
+  var plateMat = new THREE.MeshStandardMaterial({ color: 0x121c30, roughness: 0.8, metalness: 0.25 });
+  function plate(w, x, z, ry) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.6, 0.5), plateMat);
+    m.position.set(x, 0.8, z); m.rotation.y = ry || 0; m.receiveShadow = true; scene.add(m);
+  }
+  plate(HX * 2, 0, -HZ - 0.2, 0);
+  plate(HX * 2, 0, HZ + 0.2, 0);
+
+  // goals
+  var net = netTexture();
+  function buildGoal(dir, color) {
+    var grp = new THREE.Group();
+    var nm = new THREE.MeshStandardMaterial({
+      map: net, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+      color: 0xdfe9ff, roughness: 1, depthWrite: false
+    });
+    var back = new THREE.Mesh(new THREE.PlaneGeometry(GZ * 2, GH), nm.clone());
+    back.material.map = net.clone(); back.material.map.repeat.set(5, 3); back.material.map.needsUpdate = true;
+    back.position.set(dir * (HX + GD), GH / 2, 0); back.rotation.y = Math.PI / 2;
+    grp.add(back);
+    [-1, 1].forEach(function (s) {
+      var side = new THREE.Mesh(new THREE.PlaneGeometry(GD, GH), nm.clone());
+      side.material.map = net.clone(); side.material.map.repeat.set(2, 3); side.material.map.needsUpdate = true;
+      side.position.set(dir * (HX + GD / 2), GH / 2, s * GZ);
+      grp.add(side);
+    });
+    var top = new THREE.Mesh(new THREE.PlaneGeometry(GD, GZ * 2), nm.clone());
+    top.material.map = net.clone(); top.material.map.repeat.set(2, 5); top.material.map.needsUpdate = true;
+    top.position.set(dir * (HX + GD / 2), GH, 0); top.rotation.x = Math.PI / 2;
+    grp.add(top);
+    // glowing frame
+    var fm = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 1.1, roughness: 0.35 });
+    var postG = new THREE.BoxGeometry(0.5, GH, 0.5);
+    [-1, 1].forEach(function (s) {
+      var p = new THREE.Mesh(postG, fm);
+      p.position.set(dir * HX, GH / 2, s * GZ);
+      grp.add(p);
+    });
+    var bar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, GZ * 2 + 0.5), fm);
+    bar.position.set(dir * HX, GH, 0);
+    grp.add(bar);
+    // floor glow inside the goal
+    var gl = new THREE.Mesh(
+      new THREE.PlaneGeometry(GD, GZ * 2),
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.16 })
+    );
+    gl.rotation.x = -Math.PI / 2; gl.position.set(dir * (HX + GD / 2), 0.02, 0);
+    grp.add(gl);
+    scene.add(grp);
+    return grp;
+  }
+  buildGoal(-1, 0xff6b2c);
+  buildGoal(1, 0x2ea8ff);
+
+  // surrounding stands: a dark ring with crowd lights
+  var standMat = new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 1, metalness: 0 });
+  var stands = new THREE.Mesh(new THREE.CylinderGeometry(118, 132, 46, 48, 1, true), standMat);
+  stands.position.y = 16; stands.material.side = THREE.BackSide;
+  scene.add(stands);
+
+  (function crowd() {
+    var N = 900, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    var c1 = new THREE.Color(0xff6b2c), c2 = new THREE.Color(0x2ea8ff), c3 = new THREE.Color(0xffc24b);
+    for (var i = 0; i < N; i++) {
+      var a = Math.random() * Math.PI * 2, r = 92 + Math.random() * 30;
+      pos[i * 3] = Math.cos(a) * r;
+      pos[i * 3 + 1] = 6 + Math.random() * 30;
+      pos[i * 3 + 2] = Math.sin(a) * r;
+      var c = Math.cos(a) < -0.3 ? c1 : (Math.cos(a) > 0.3 ? c2 : c3);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+      size: 1.1, vertexColors: true, transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })));
+  })();
+
+  /* ============================================================
+     BALL
+     ============================================================ */
+  var ballMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(BR, 40, 28),
+    new THREE.MeshStandardMaterial({ map: ballTexture(), roughness: 0.42, metalness: 0.05 })
+  );
+  ballMesh.castShadow = true;
+  scene.add(ballMesh);
+
+  var ballRing = new THREE.Mesh(
+    new THREE.RingGeometry(BR * 1.05, BR * 1.35, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffc24b, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+  );
+  ballRing.rotation.x = -Math.PI / 2;
+  scene.add(ballRing);
+
+  var ball = { pos: new V3(0, BR, 0), vel: new V3(), spin: new V3() };
+
+  /* ============================================================
+     CARS
+     ============================================================ */
+  function buildCar(color) {
+    var grp = new THREE.Group();
+    var body = new THREE.MeshStandardMaterial({ color: color, roughness: 0.38, metalness: 0.55 });
+    var dark = new THREE.MeshStandardMaterial({ color: 0x0d1524, roughness: 0.6, metalness: 0.3 });
+    var glass = new THREE.MeshStandardMaterial({ color: 0x0a1830, roughness: 0.08, metalness: 0.9 });
+
+    var chassis = new THREE.Mesh(new THREE.BoxGeometry(CAR.hw * 2, CAR.hh * 1.5, CAR.hl * 2), body);
+    chassis.position.y = 0.05; chassis.castShadow = true; grp.add(chassis);
+
+    var nose = new THREE.Mesh(new THREE.BoxGeometry(CAR.hw * 1.75, CAR.hh * 0.6, 1.0), body);
+    nose.position.set(0, -0.22, CAR.hl * 0.82); nose.castShadow = true; grp.add(nose);
+
+    var cabin = new THREE.Mesh(new THREE.BoxGeometry(CAR.hw * 1.45, CAR.hh * 1.1, CAR.hl * 0.95), glass);
+    cabin.position.set(0, CAR.hh * 1.05, -0.16); cabin.castShadow = true; grp.add(cabin);
+
+    var stripe = new THREE.Mesh(new THREE.BoxGeometry(CAR.hw * 2.04, 0.16, 0.5), new THREE.MeshStandardMaterial({
+      color: 0xffffff, emissive: color, emissiveIntensity: 1.4, roughness: 0.4
+    }));
+    stripe.position.set(0, CAR.hh * 0.55, CAR.hl * 0.45); grp.add(stripe);
+
+    var wing = new THREE.Mesh(new THREE.BoxGeometry(CAR.hw * 1.9, 0.16, 0.6), dark);
+    wing.position.set(0, CAR.hh * 1.5, -CAR.hl * 0.92); wing.castShadow = true; grp.add(wing);
+    [-1, 1].forEach(function (s) {
+      var st = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.18), dark);
+      st.position.set(s * CAR.hw * 0.72, CAR.hh * 1.2, -CAR.hl * 0.92); grp.add(st);
+    });
+
+    var wheelG = new THREE.CylinderGeometry(0.55, 0.55, 0.42, 16);
+    wheelG.rotateZ(Math.PI / 2);
+    var wheels = [];
+    [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(function (p) {
+      var w = new THREE.Mesh(wheelG, dark);
+      w.position.set(p[0] * (CAR.hw + 0.06), -CAR.hh * 0.75, p[1] * CAR.hl * 0.66);
+      w.castShadow = true; grp.add(w); wheels.push(w);
+    });
+
+    var flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.45, 2.2, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffc24b, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    flame.rotation.x = Math.PI / 2;
+    flame.position.set(0, 0.0, -CAR.hl - 0.9);
+    flame.visible = false;
+    grp.add(flame);
+
+    var lamp = new THREE.PointLight(color, 0.0, 22, 2);
+    lamp.position.set(0, 0.2, -CAR.hl - 0.6);
+    grp.add(lamp);
+
+    grp.userData = { wheels: wheels, flame: flame, lamp: lamp };
+    scene.add(grp);
+    return grp;
+  }
+
+  function makeCar(color, dir, name) {
+    return {
+      name: name,
+      dir: dir,                 // +1 attacks the +X goal
+      color: color,
+      mesh: buildCar(color),
+      pos: new V3(), vel: new V3(), yaw: 0,
+      onGround: true, jumps: 0, jumpHeld: false,
+      boost: BOOST_MAX, boosting: false,
+      pitchRoll: 0,
+      ai: null,
+      stats: { touches: 0, top: 0, boostUsed: 0 },
+      ctl: { th: 0, st: 0, jump: false, boost: false }
+    };
+  }
+
+  var carA = makeCar(0xff6b2c, 1, "BLAZE");   // orange attacks +X
+  var carB = makeCar(0x2ea8ff, -1, "FROST");  // blue attacks -X
+  var cars = [carA, carB];
+
+  function fwdOf(yaw) { return new V3(Math.sin(yaw), 0, Math.cos(yaw)); }
+  function rgtOf(yaw) { return new V3(Math.cos(yaw), 0, -Math.sin(yaw)); }
+
+  /* ============================================================
+     GOAL EXPLOSION PARTICLES
+     ============================================================ */
+  var PN = 260;
+  var pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3);
+  var pVel = [], pLife = new Float32Array(PN);
+  for (var i = 0; i < PN; i++) pVel.push(new V3());
+  var pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+  pGeo.setAttribute("color", new THREE.BufferAttribute(pCol, 3));
+  var particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    size: 0.9, vertexColors: true, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  particles.frustumCulled = false;
+  scene.add(particles);
+
+  function burst(at, colorHex) {
+    var c = new THREE.Color(colorHex);
+    for (var i = 0; i < PN; i++) {
+      pPos[i * 3] = at.x; pPos[i * 3 + 1] = at.y; pPos[i * 3 + 2] = at.z;
+      var a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI;
+      var s = 8 + Math.random() * 26;
+      pVel[i].set(Math.sin(b) * Math.cos(a), Math.abs(Math.cos(b)) * 1.2 + 0.2, Math.sin(b) * Math.sin(a)).multiplyScalar(s);
+      pLife[i] = 1.1 + Math.random() * 0.9;
+      var m = 0.6 + Math.random() * 0.6;
+      pCol[i * 3] = c.r * m; pCol[i * 3 + 1] = c.g * m; pCol[i * 3 + 2] = c.b * m;
+    }
+    pGeo.attributes.position.needsUpdate = true;
+    pGeo.attributes.color.needsUpdate = true;
+  }
+
+  function stepParticles(dt) {
+    var alive = false;
+    for (var i = 0; i < PN; i++) {
+      if (pLife[i] <= 0) continue;
+      alive = true;
+      pLife[i] -= dt;
+      pVel[i].y -= 22 * dt;
+      pPos[i * 3] += pVel[i].x * dt;
+      pPos[i * 3 + 1] += pVel[i].y * dt;
+      pPos[i * 3 + 2] += pVel[i].z * dt;
+      if (pPos[i * 3 + 1] < 0.2) { pPos[i * 3 + 1] = 0.2; pVel[i].y *= -0.35; pVel[i].x *= 0.7; pVel[i].z *= 0.7; }
+      var f = Math.max(pLife[i], 0);
+      pCol[i * 3] *= 0.985; pCol[i * 3 + 1] *= 0.985; pCol[i * 3 + 2] *= 0.985;
+      if (f <= 0) { pPos[i * 3 + 1] = -999; }
+    }
+    if (alive) { pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true; }
+  }
+
+  /* ============================================================
+     SOUND — every note and every effect is synthesised live.
+     No audio files, so nothing to download and nothing to break.
+     ============================================================ */
+  var SND = (function () {
+    var A = null, master, musicBus, sfxBus;
+    var noiseBuf = null;
+    var muted = false;
+    var engines = [];
+    var crowd = { gain: null, level: 0.02, target: 0.02 };
+    var jet = { gain: null };
+    var M = { on: false, step: 0, next: 0, bpm: 132, track: "menu", intensity: 0.5, timer: null };
+
+    try { muted = localStorage.getItem("bp_muted") === "1"; } catch (e) { muted = false; }
+
+    function nf(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+    function boot() {
+      if (A) return true;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      try { A = new AC(); } catch (e) { return false; }
+
+      master = A.createGain(); master.gain.value = muted ? 0.0001 : 0.85; master.connect(A.destination);
+      musicBus = A.createGain(); musicBus.gain.value = 0.26; musicBus.connect(master);
+      sfxBus = A.createGain(); sfxBus.gain.value = 0.95; sfxBus.connect(master);
+
+      var n = Math.floor(A.sampleRate * 2);
+      noiseBuf = A.createBuffer(1, n, A.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+
+      // ambient crowd bed — swells when the ball gets near a net
+      var cs = A.createBufferSource(); cs.buffer = noiseBuf; cs.loop = true;
+      var cf = A.createBiquadFilter(); cf.type = "lowpass"; cf.frequency.value = 560; cf.Q.value = 0.5;
+      var cg = A.createGain(); cg.gain.value = 0.02;
+      cs.connect(cf); cf.connect(cg); cg.connect(sfxBus); cs.start();
+      crowd.gain = cg;
+
+      // boost jet, held open while anyone is boosting
+      var js = A.createBufferSource(); js.buffer = noiseBuf; js.loop = true;
+      var jf = A.createBiquadFilter(); jf.type = "bandpass"; jf.frequency.value = 900; jf.Q.value = 1.0;
+      var jg = A.createGain(); jg.gain.value = 0.0001;
+      js.connect(jf); jf.connect(jg); jg.connect(sfxBus); js.start();
+      jet.gain = jg;
+
+      M.timer = setInterval(tickMusic, 25);
+      return true;
+    }
+
+    function unlock() {
+      if (!boot()) return;
+      if (A.state === "suspended") A.resume();
+    }
+
+    /* ---------- generic voices ---------- */
+    function env(g, t, a, d, peak) {
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + a);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+    }
+    function blip(f0, dur, type, v, slide, bus) {
+      if (!A) return;
+      var t = A.currentTime;
+      var o = A.createOscillator(), g = A.createGain();
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(f0, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+      env(g, t, 0.008, dur, v);
+      o.connect(g); g.connect(bus || sfxBus);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+    function noiseHit(freq, q, dur, v, type) {
+      if (!A) return;
+      var t = A.currentTime;
+      var s = A.createBufferSource(); s.buffer = noiseBuf;
+      var f = A.createBiquadFilter(); f.type = type || "bandpass";
+      f.frequency.value = freq; f.Q.value = q;
+      var g = A.createGain(); env(g, t, 0.005, dur, v);
+      s.connect(f); f.connect(g); g.connect(sfxBus);
+      s.start(t, Math.random()); s.stop(t + dur + 0.06);
+    }
+
+    /* ---------- music: a four-bar loop, Am – F – C – G ---------- */
+    var PROG = [
+      { bass: 33, ch: [69, 72, 76] },
+      { bass: 29, ch: [65, 69, 72] },
+      { bass: 36, ch: [72, 76, 79] },
+      { bass: 31, ch: [67, 71, 74] }
+    ];
+    function kick(t, v) {
+      var o = A.createOscillator(), g = A.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(152, t);
+      o.frequency.exponentialRampToValueAtTime(42, t + 0.1);
+      env(g, t, 0.004, 0.2, 0.75 * v);
+      o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + 0.3);
+    }
+    function snare(t) {
+      var s = A.createBufferSource(); s.buffer = noiseBuf;
+      var f = A.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1850; f.Q.value = 0.85;
+      var g = A.createGain(); env(g, t, 0.003, 0.13, 0.2);
+      s.connect(f); f.connect(g); g.connect(musicBus);
+      s.start(t, Math.random()); s.stop(t + 0.22);
+    }
+    function hat(t, v) {
+      var s = A.createBufferSource(); s.buffer = noiseBuf;
+      var f = A.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 7400;
+      var g = A.createGain(); env(g, t, 0.002, 0.034, v);
+      s.connect(f); f.connect(g); g.connect(musicBus);
+      s.start(t, Math.random()); s.stop(t + 0.09);
+    }
+    function bassNote(t, f0, v) {
+      var o = A.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(f0, t);
+      var f = A.createBiquadFilter(); f.type = "lowpass"; f.Q.value = 6;
+      f.frequency.setValueAtTime(240, t);
+      f.frequency.exponentialRampToValueAtTime(980, t + 0.03);
+      f.frequency.exponentialRampToValueAtTime(220, t + 0.17);
+      var g = A.createGain(); env(g, t, 0.006, 0.15, v);
+      o.connect(f); f.connect(g); g.connect(musicBus);
+      o.start(t); o.stop(t + 0.26);
+    }
+    function pluck(t, f0, v) {
+      var o = A.createOscillator(); o.type = "square"; o.frequency.setValueAtTime(f0, t);
+      var f = A.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 2800;
+      var g = A.createGain(); env(g, t, 0.004, 0.18, v);
+      o.connect(f); f.connect(g); g.connect(musicBus);
+      o.start(t); o.stop(t + 0.28);
+    }
+    function pad(t, ch) {
+      for (var i = 0; i < ch.length; i++) {
+        for (var dd = -1; dd <= 1; dd += 2) {
+          var o = A.createOscillator(); o.type = "sawtooth";
+          o.frequency.value = nf(ch[i] - 12) * (1 + dd * 0.004);
+          var f = A.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1300;
+          var g = A.createGain();
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.02, t + 0.6);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 2.5);
+          o.connect(f); f.connect(g); g.connect(musicBus);
+          o.start(t); o.stop(t + 2.7);
+        }
+      }
+    }
+    function musicStep(s, t) {
+      var bar = (s >> 4) & 3, st = s & 15, P = PROG[bar];
+      if (M.track === "match") {
+        if (st % 4 === 0) kick(t, 1);
+        if (st === 14) kick(t, 0.55);
+        if (st === 4 || st === 12) snare(t);
+        if (st % 2 === 0) hat(t, 0.15);
+        else if (M.intensity > 0.62) hat(t, 0.08);
+        if (st === 0 || st === 3 || st === 6 || st === 8 || st === 11 || st === 14) {
+          bassNote(t, nf(P.bass + ((st === 6 || st === 14) ? 12 : 0)), 0.2);
+        }
+        if (st % 4 === 2) pluck(t, nf(P.ch[(st >> 2) % 3]), 0.055 + M.intensity * 0.06);
+        if (M.intensity > 0.78 && (st === 7 || st === 15)) pluck(t, nf(P.ch[2] + 12), 0.06);
+      } else {
+        if (st === 0 || st === 8) kick(t, 0.6);
+        if (st % 4 === 2) hat(t, 0.055);
+        if (st === 0) { bassNote(t, nf(P.bass), 0.14); pad(t, P.ch); }
+        if (st === 6) pluck(t, nf(P.ch[1] + 12), 0.05);
+        if (st === 12) pluck(t, nf(P.ch[2] + 12), 0.045);
+      }
+    }
+    function tickMusic() {
+      if (!A || !M.on) return;
+      var spb = (60 / M.bpm) / 4;
+      if (M.next < A.currentTime) M.next = A.currentTime + 0.06;
+      var guard = 0;
+      while (M.next < A.currentTime + 0.15 && guard++ < 32) {
+        musicStep(M.step, M.next);
+        M.next += spb;
+        M.step = (M.step + 1) % 64;
+      }
+    }
+
+    /* ---------- per-frame continuous sound ---------- */
+    function makeEngine(pan) {
+      var o1 = A.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 50;
+      var o2 = A.createOscillator(); o2.type = "square"; o2.frequency.value = 25;
+      var f = A.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 600; f.Q.value = 3.5;
+      var g = A.createGain(); g.gain.value = 0.0001;
+      o1.connect(f); o2.connect(f); f.connect(g);
+      if (A.createStereoPanner) {
+        var p = A.createStereoPanner(); p.pan.value = pan;
+        g.connect(p); p.connect(sfxBus);
+      } else { g.connect(sfxBus); }
+      o1.start(); o2.start();
+      return { o1: o1, o2: o2, f: f, g: g };
+    }
+
+    function frame(dt, list, tension, live) {
+      if (!A) return;
+      var t = A.currentTime, anyBoost = false, i;
+      for (i = 0; i < list.length; i++) {
+        if (!engines[i]) engines[i] = makeEngine(list.length > 1 ? (i === 0 ? -0.45 : 0.45) : 0);
+        var c = list[i], e = engines[i];
+        var sp = Math.hypot(c.vel.x, c.vel.z);
+        var f0 = 44 + sp * 6.0 + (c.boosting ? 34 : 0);
+        e.o1.frequency.setTargetAtTime(f0, t, 0.06);
+        e.o2.frequency.setTargetAtTime(f0 * 0.5, t, 0.06);
+        e.f.frequency.setTargetAtTime(420 + sp * 28, t, 0.08);
+        var want = live ? (0.016 + Math.min(sp / 34, 1) * 0.045) * (c.onGround ? 1 : 0.5) : 0.0001;
+        e.g.gain.setTargetAtTime(Math.max(want, 0.0001), t, 0.09);
+        if (c.boosting) anyBoost = true;
+      }
+      if (jet.gain) {
+        jet.gain.gain.setTargetAtTime(anyBoost && live ? 0.085 : 0.0001, t, anyBoost ? 0.03 : 0.14);
+      }
+      crowd.target = live ? 0.022 + tension * 0.055 : 0.014;
+      crowd.level += (crowd.target - crowd.level) * Math.min(dt * 1.1, 1);
+      if (crowd.gain) crowd.gain.gain.setTargetAtTime(Math.max(crowd.level, 0.0001), t, 0.25);
+      M.intensity = 0.45 + tension * 0.55;
+    }
+
+    /* ---------- one-shots ---------- */
+    function hit(power) {
+      var p = Math.min(power / 42, 1);
+      blip(78 + p * 90, 0.15 + p * 0.12, "triangle", 0.06 + p * 0.17, 48 + p * 30);
+      noiseHit(280 + p * 700, 1.4, 0.1 + p * 0.09, 0.05 + p * 0.12);
+      if (p > 0.72) blip(180, 0.3, "sawtooth", 0.06, 70);
+    }
+    function wall() { noiseHit(420, 1.6, 0.09, 0.05); blip(130, 0.08, "square", 0.035, 90); }
+    function post() { blip(1180, 0.5, "triangle", 0.11, 1120); blip(1770, 0.34, "sine", 0.06); }
+    function bump(v) {
+      var p = Math.min(v / 30, 1);
+      noiseHit(200, 0.9, 0.13, 0.05 + p * 0.1, "lowpass");
+      blip(95, 0.17, "square", 0.05 + p * 0.08, 60);
+    }
+    function jump(isFlip) {
+      if (isFlip) { blip(300, 0.2, "sawtooth", 0.09, 900); noiseHit(1600, 1.2, 0.16, 0.06); }
+      else blip(420, 0.1, "sine", 0.07, 720);
+    }
+    function count(hi) { blip(hi ? 950 : 560, hi ? 0.22 : 0.11, "square", 0.08); }
+    function ui() { blip(720, 0.05, "square", 0.04, 900); }
+    function whistle(long) {
+      if (!A) return;
+      var t = A.currentTime, dur = long ? 0.8 : 0.32;
+      var o = A.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(2320, t);
+      var lfo = A.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 27;
+      var lg = A.createGain(); lg.gain.value = 95;
+      lfo.connect(lg); lg.connect(o.frequency);
+      var g = A.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.11, t + 0.03);
+      g.gain.setValueAtTime(0.11, t + dur - 0.07);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(sfxBus);
+      o.start(t); o.stop(t + dur + 0.05);
+      lfo.start(t); lfo.stop(t + dur + 0.05);
+      noiseHit(2500, 7, dur, 0.045);
+    }
+    function horn(delay) {
+      var t = A.currentTime + delay;
+      [176, 182, 265].forEach(function (f, i) {
+        var o = A.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(f, t);
+        var lp = A.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1500;
+        var g = A.createGain(); var pk = i === 2 ? 0.045 : 0.095;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(pk, t + 0.05);
+        g.gain.setValueAtTime(pk, t + 0.48);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.66);
+        o.connect(lp); lp.connect(g); g.connect(sfxBus);
+        o.start(t); o.stop(t + 0.7);
+      });
+    }
+    function goal() {
+      if (!A) return;
+      horn(0); horn(0.72);
+      crowd.level = 0.3;
+      musicBus.gain.cancelScheduledValues(A.currentTime);
+      musicBus.gain.setTargetAtTime(0.08, A.currentTime, 0.12);
+      musicBus.gain.setTargetAtTime(M.track === "match" ? 0.26 : 0.22, A.currentTime + 1.9, 0.6);
+      [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) {
+        setTimeout(function () { blip(f, 0.36, "sawtooth", 0.085); }, 400 + i * 125);
+      });
+    }
+
+    function setTrack(name) {
+      if (!boot()) return;
+      if (A.state === "suspended") A.resume();
+      M.track = name;
+      M.bpm = name === "match" ? 132 : 96;
+      M.step = 0;
+      M.next = A.currentTime + 0.1;
+      M.on = true;
+      musicBus.gain.cancelScheduledValues(A.currentTime);
+      musicBus.gain.setTargetAtTime(name === "match" ? 0.26 : 0.22, A.currentTime, 0.5);
+    }
+    function setPaused(p) {
+      if (!A) return;
+      musicBus.gain.cancelScheduledValues(A.currentTime);
+      musicBus.gain.setTargetAtTime(p ? 0.06 : (M.track === "match" ? 0.26 : 0.22), A.currentTime, 0.15);
+    }
+    function toggleMute() {
+      muted = !muted;
+      try { localStorage.setItem("bp_muted", muted ? "1" : "0"); } catch (e) { }
+      if (!boot()) return muted;
+      if (A.state === "suspended") A.resume();
+      master.gain.cancelScheduledValues(A.currentTime);
+      master.gain.setTargetAtTime(muted ? 0.0001 : 0.85, A.currentTime, 0.08);
+      return muted;
+    }
+
+    return {
+      unlock: unlock, frame: frame, setTrack: setTrack, setPaused: setPaused,
+      toggleMute: toggleMute, isMuted: function () { return muted; },
+      hit: hit, wall: wall, post: post, bump: bump, jump: jump,
+      count: count, ui: ui, whistle: whistle, goal: goal
+    };
+  })();
+
+  function audio() { SND.unlock(); }
+  function sfxHit(power) { SND.hit(power); }
+  function sfxWall() { SND.wall(); }
+  function sfxJump() { SND.jump(false); }
+  function sfxGoal() { SND.goal(); }
+  function sfxTick(hi) { SND.count(hi); }
+
+  /* ============================================================
+     GAME STATE
+     ============================================================ */
+  var G = {
+    state: "menu",        // menu | countdown | playing | celebrate | ended | paused
+    mode: "solo",
+    skillKey: "pro",
+    length: 180,
+    clock: 180,
+    overtime: false,
+    scoreA: 0, scoreB: 0,
+    timer: 0,
+    prev: "playing",
+    shake: 0,
+    ballCam: true,
+    touch: false
+  };
+
+  var SKILLS = {
+    rookie: { speed: 0.72, lead: 0.12, err: 6.5, react: 0.34, boost: false, aerial: false },
+    pro: { speed: 0.9, lead: 0.26, err: 2.8, react: 0.18, boost: true, aerial: true },
+    menace: { speed: 1.0, lead: 0.38, err: 1.0, react: 0.08, boost: true, aerial: true }
+  };
+
+  /* ============================================================
+     INPUT
+     ============================================================ */
+  var keys = Object.create(null);
+  var BLOCK = { Space: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, Enter: 1 };
+
+  window.addEventListener("keydown", function (e) {
+    if (BLOCK[e.code]) e.preventDefault();
+    if (keys[e.code]) return;
+    keys[e.code] = true;
+    if (e.code === "KeyC") G.ballCam = !G.ballCam;
+    if (e.code === "KeyM") setMute(SND.toggleMute());
+    if (e.code === "Escape") togglePause();
+    if (e.code === "KeyR" && G.state === "playing") { resetCar(carA, false); }
+  });
+  window.addEventListener("keyup", function (e) { keys[e.code] = false; });
+  window.addEventListener("blur", function () { keys = Object.create(null); });
+
+  var touchState = { left: 0, right: 0, go: 0, back: 0, jump: 0, boost: 0 };
+  function bindPad(id, key) {
+    var el = document.getElementById(id);
+    function on(e) { e.preventDefault(); touchState[key] = 1; el.classList.add("act"); audio(); }
+    function off(e) { e.preventDefault(); touchState[key] = 0; el.classList.remove("act"); }
+    el.addEventListener("touchstart", on, { passive: false });
+    el.addEventListener("touchend", off, { passive: false });
+    el.addEventListener("touchcancel", off, { passive: false });
+    el.addEventListener("mousedown", on);
+    window.addEventListener("mouseup", off);
+  }
+  ["tLeft:left", "tRight:right", "tGo:go", "tBack:back", "tJump:jump", "tBoost:boost"].forEach(function (s) {
+    var p = s.split(":"); bindPad(p[0], p[1]);
+  });
+
+  function readInput() {
+    var a = carA.ctl;
+    var solo = G.mode === "solo";
+    var up = keys.KeyW || (solo && keys.ArrowUp) || touchState.go;
+    var dn = keys.KeyS || (solo && keys.ArrowDown) || touchState.back;
+    var lf = keys.KeyA || (solo && keys.ArrowLeft) || touchState.left;
+    var rt = keys.KeyD || (solo && keys.ArrowRight) || touchState.right;
+    a.th = (up ? 1 : 0) - (dn ? 1 : 0);
+    a.st = (lf ? 1 : 0) - (rt ? 1 : 0);
+    a.jump = !!(keys.Space || (solo && keys.Enter) || touchState.jump);
+    a.boost = !!(keys.ShiftLeft || (solo && keys.ShiftRight) || touchState.boost);
+
+    if (!solo) {
+      var b = carB.ctl;
+      b.th = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
+      b.st = (keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0);
+      b.jump = !!(keys.Enter || keys.Numpad0);
+      b.boost = !!(keys.ShiftRight || keys.NumpadEnter || keys.Slash);
+    }
+  }
+
+  /* ============================================================
+     CAR PHYSICS
+     ============================================================ */
+  function stepCar(car, dt) {
+    var c = car.ctl;
+    var f = fwdOf(car.yaw), r = rgtOf(car.yaw);
+    var fs = car.vel.dot(f), ls = car.vel.dot(r);
+    var maxS = car.aiSkill ? V_MAX * car.aiSkill.speed : V_MAX;
+    var maxB = car.aiSkill ? V_BOOST * car.aiSkill.speed : V_BOOST;
+
+    // steering
+    var speedFac = Math.min(Math.abs(fs) / 9, 1);
+    var rate = car.onGround ? TURN : AIR_TURN;
+    var dirSign = fs < -0.6 ? -1 : 1;
+    car.yaw += c.st * rate * (car.onGround ? (0.25 + 0.75 * speedFac) * dirSign : 1) * dt;
+
+    // boost
+    car.boosting = false;
+    if (c.boost && car.boost > 0) {
+      car.boosting = true;
+      var used = Math.min(car.boost, BOOST_DRAIN * dt);
+      car.boost -= used;
+      car.stats.boostUsed += used;
+      fs += BOOST_ACC * dt;
+    } else {
+      car.boost = Math.min(BOOST_MAX, car.boost + BOOST_REGEN * dt);
+    }
+
+    // throttle
+    if (c.th > 0) fs += ACC * dt;
+    else if (c.th < 0) fs -= REV * dt;
+    else fs -= fs * Math.min(COAST * dt, 1);
+
+    var cap = car.boosting ? maxB : maxS;
+    if (fs > cap) fs += (cap - fs) * Math.min(3 * dt, 1);
+    if (fs < -maxS * 0.55) fs = -maxS * 0.55;
+
+    // grip kills sideways slide
+    ls *= Math.exp(-(car.onGround ? GRIP : 1.2) * dt);
+
+    var vy = car.vel.y;
+    car.vel.copy(f).multiplyScalar(fs).addScaledVector(r, ls);
+    car.vel.y = vy;
+
+    // jumping / flipping
+    if (c.jump && !car.jumpHeld) {
+      if (car.onGround) {
+        car.vel.y = JUMP_V; car.onGround = false; car.jumps = 1; sfxJump();
+      } else if (car.jumps < 2) {
+        car.jumps = 2;
+        car.vel.y = Math.max(car.vel.y, 0) + FLIP_V * 0.55;
+        var push = c.th < 0 ? -1 : 1;
+        car.vel.addScaledVector(f, FLIP_PUSH * push);
+        car.pitchRoll = push * 1.0;
+        SND.jump(true);
+      }
+    }
+    car.jumpHeld = c.jump;
+
+    // gravity + integrate
+    if (!car.onGround) car.vel.y -= GRAV * dt;
+    car.pos.addScaledVector(car.vel, dt);
+
+    // flip animation decay
+    if (car.pitchRoll !== 0) {
+      car.pitchRoll *= Math.exp(-3.4 * dt);
+      if (Math.abs(car.pitchRoll) < 0.02) car.pitchRoll = 0;
+    }
+
+    // ground
+    if (car.pos.y <= CAR.y) {
+      car.pos.y = CAR.y;
+      if (car.vel.y < 0) car.vel.y = 0;
+      if (!car.onGround) { car.onGround = true; car.jumps = 0; car.pitchRoll = 0; }
+    } else if (car.pos.y > CEIL - 1) {
+      car.pos.y = CEIL - 1;
+      if (car.vel.y > 0) car.vel.y = -car.vel.y * 0.2;
+    }
+
+    // walls (cars never enter the goals)
+    var lx = HX - CAR.r, lz = HZ - CAR.r;
+    if (car.pos.x > lx) { car.pos.x = lx; if (car.vel.x > 0) car.vel.x *= -0.25; }
+    if (car.pos.x < -lx) { car.pos.x = -lx; if (car.vel.x < 0) car.vel.x *= -0.25; }
+    if (car.pos.z > lz) { car.pos.z = lz; if (car.vel.z > 0) car.vel.z *= -0.25; }
+    if (car.pos.z < -lz) { car.pos.z = -lz; if (car.vel.z < 0) car.vel.z *= -0.25; }
+
+    var sp = Math.hypot(car.vel.x, car.vel.z) * 3.6;
+    if (sp > car.stats.top) car.stats.top = sp;
+  }
+
+  function carCarCollision(a, b) {
+    var dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, dy = b.pos.y - a.pos.y;
+    var d = Math.hypot(dx, dz, dy);
+    var min = CAR.r * 1.55;
+    if (d > min || d < 0.0001) return;
+    var nx = dx / d, ny = dy / d, nz = dz / d;
+    var pen = (min - d) * 0.5;
+    a.pos.x -= nx * pen; a.pos.z -= nz * pen;
+    b.pos.x += nx * pen; b.pos.z += nz * pen;
+    var rvx = b.vel.x - a.vel.x, rvy = b.vel.y - a.vel.y, rvz = b.vel.z - a.vel.z;
+    var vn = rvx * nx + rvy * ny + rvz * nz;
+    if (vn > 0) return;
+    var j = -(1.15) * vn * 0.5;
+    a.vel.x -= nx * j; a.vel.z -= nz * j;
+    b.vel.x += nx * j; b.vel.z += nz * j;
+    if (Math.abs(vn) > 10) SND.bump(Math.abs(vn));
+  }
+
+  /* ============================================================
+     BALL PHYSICS
+     ============================================================ */
+  function stepBall(dt) {
+    ball.vel.y -= GRAV * dt;
+    ball.vel.multiplyScalar(Math.exp(-BALL_DRAG * dt * 0.5));
+    ball.pos.addScaledVector(ball.vel, dt);
+    if (ball.vel.length() > BALL_MAX) ball.vel.setLength(BALL_MAX);
+
+    // floor
+    if (ball.pos.y < BR) {
+      ball.pos.y = BR;
+      if (ball.vel.y < -1) {
+        ball.vel.y = -ball.vel.y * BALL_REST;
+        if (Math.abs(ball.vel.y) > 6) sfxWall();
+      } else {
+        ball.vel.y = 0;
+        ball.vel.x *= Math.exp(-ROLL * dt);
+        ball.vel.z *= Math.exp(-ROLL * dt);
+      }
+    }
+    // ceiling
+    if (ball.pos.y > CEIL - BR) {
+      ball.pos.y = CEIL - BR;
+      if (ball.vel.y > 0) ball.vel.y = -ball.vel.y * WALL_REST;
+    }
+    // side walls
+    if (ball.pos.z > HZ - BR) { ball.pos.z = HZ - BR; if (ball.vel.z > 0) { ball.vel.z *= -WALL_REST; sfxWall(); } }
+    if (ball.pos.z < -HZ + BR) { ball.pos.z = -HZ + BR; if (ball.vel.z < 0) { ball.vel.z *= -WALL_REST; sfxWall(); } }
+
+    // end walls, with the goal mouth open
+    var inMouth = Math.abs(ball.pos.z) < GZ - BR * 0.35 && ball.pos.y < GH - BR * 0.3;
+    [1, -1].forEach(function (s) {
+      var x = ball.pos.x * s;
+      if (x > HX - BR && !inMouth) {
+        ball.pos.x = s * (HX - BR);
+        if (ball.vel.x * s > 0) {
+          // clanging off the frame itself sounds different from the back wall
+          var az = Math.abs(ball.pos.z);
+          var onFrame = (az > GZ - BR * 1.6 && az < GZ + BR * 1.6 && ball.pos.y < GH) ||
+                        (ball.pos.y > GH - BR * 1.6 && ball.pos.y < GH + BR * 1.6 && az < GZ);
+          ball.vel.x *= -WALL_REST;
+          if (onFrame) SND.post(); else sfxWall();
+        }
+      } else if (inMouth && x > HX + GD - BR) {
+        // back of the net
+        ball.pos.x = s * (HX + GD - BR);
+        if (ball.vel.x * s > 0) ball.vel.x *= -0.25;
+      }
+    });
+
+    // spin visual
+    var ang = ball.vel.length() / BR;
+    if (ang > 0.01) {
+      var axis = new V3(0, 1, 0).cross(ball.vel).normalize();
+      ballMesh.rotateOnWorldAxis(axis, -ang * dt * 0.55);
+    }
+  }
+
+  function carBallCollision(car) {
+    var f = fwdOf(car.yaw), r = rgtOf(car.yaw);
+    var rel = ball.pos.clone().sub(car.pos);
+    var lx = rel.dot(r), ly = rel.y, lz = rel.dot(f);
+    var cx = Math.max(-CAR.hw, Math.min(CAR.hw, lx));
+    var cy = Math.max(-CAR.hh, Math.min(CAR.hh, ly));
+    var cz = Math.max(-CAR.hl, Math.min(CAR.hl, lz));
+    var dx = lx - cx, dy = ly - cy, dz = lz - cz;
+    var d = Math.hypot(dx, dy, dz);
+    if (d > BR) return;
+    if (d < 0.0001) { dx = 0; dy = 1; dz = 0; d = 0.0001; }
+
+    var n = new V3().addScaledVector(r, dx / d).addScaledVector(new V3(0, 1, 0), dy / d).addScaledVector(f, dz / d).normalize();
+    ball.pos.addScaledVector(n, (BR - d) + 0.02);
+
+    var rv = ball.vel.clone().sub(car.vel);
+    var vn = rv.dot(n);
+    var carSpeed = car.vel.length();
+    if (vn < 0) {
+      var j = -(1 + 0.45) * vn;
+      ball.vel.addScaledVector(n, j);
+      car.vel.addScaledVector(n, -j * 0.1);
+    }
+    // arcade kick: harder the faster you are going into it
+    var drive = Math.max(0, car.vel.dot(n));
+    ball.vel.addScaledVector(n, drive * 0.55 + 2.2);
+    ball.vel.y += 1.6 + drive * 0.12;
+    if (ball.vel.length() > BALL_MAX) ball.vel.setLength(BALL_MAX);
+
+    car.stats.touches++;
+    sfxHit(carSpeed + drive * 6);
+    if (car === carA || G.mode === "duo") G.shake = Math.min(1, G.shake + Math.min(carSpeed / 60, 0.5));
+  }
+
+  /* ============================================================
+     BOT
+     ============================================================ */
+  function botControls(car, dt) {
+    var s = car.aiSkill;
+    car.aiT = (car.aiT || 0) - dt;
+    if (car.aiT <= 0) {
+      car.aiT = s.react;
+      car.aiErr = new V3((Math.random() - 0.5) * s.err * 2, 0, (Math.random() - 0.5) * s.err * 2);
+    }
+    var err = car.aiErr || new V3();
+
+    var dir = car.dir;
+    var oppGoal = new V3(dir * (HX + 2), 0, 0);
+    var ownGoalX = -dir * HX;
+
+    var bp = ball.pos.clone().addScaledVector(ball.vel, s.lead);
+    bp.y = 0; bp.add(err);
+    bp.x = Math.max(-HX + 2, Math.min(HX - 2, bp.x));
+    bp.z = Math.max(-HZ + 2, Math.min(HZ - 2, bp.z));
+
+    var toGoal = oppGoal.clone().sub(bp); toGoal.y = 0; toGoal.normalize();
+    var target = bp.clone().addScaledVector(toGoal, -3.8);
+
+    // how far up the pitch (from our own goal) are the car and ball?
+    var ballAdv = (bp.x - ownGoalX) * dir;
+    var carAdv = (car.pos.x - ownGoalX) * dir;
+
+    if (carAdv > ballAdv + 1.5) {
+      // we are goal-side of the ball on the wrong side: swing around it
+      var side = (car.pos.z - bp.z) >= 0 ? 1 : -1;
+      target = bp.clone().addScaledVector(toGoal, -8).add(new V3(0, 0, side * 10));
+    } else if (ballAdv < 20 && carAdv > ballAdv - 2) {
+      // defend: get between ball and our net
+      target = bp.clone().lerp(new V3(ownGoalX, 0, bp.z * 0.35), 0.45);
+    }
+    target.x = Math.max(-HX + 3, Math.min(HX - 3, target.x));
+    target.z = Math.max(-HZ + 3, Math.min(HZ - 3, target.z));
+
+    var to = target.clone().sub(car.pos); to.y = 0;
+    var dist = to.length();
+    var f = fwdOf(car.yaw), r = rgtOf(car.yaw);
+    var ang = Math.atan2(to.dot(r), to.dot(f));
+
+    var c = car.ctl;
+    c.st = Math.max(-1, Math.min(1, ang * 2.2));
+    if (Math.abs(ang) > 2.1 && dist < 14) { c.th = -1; c.st = -c.st; }
+    else if (Math.abs(ang) > 1.3) c.th = 0.55;
+    else c.th = 1;
+
+    c.boost = !!(s.boost && Math.abs(ang) < 0.3 && dist > 11 && car.boost > 18);
+
+    var toBall = new V3(ball.pos.x - car.pos.x, 0, ball.pos.z - car.pos.z);
+    var bd = toBall.length();
+    c.jump = false;
+    if (s.aerial && car.onGround && ball.pos.y > 3.2 && bd < 6.5 && Math.abs(ang) < 0.7) c.jump = true;
+    if (car.onGround && bd < 3.4 && Math.abs(ang) < 0.5 && Math.random() < 0.03) c.jump = true;
+    if (!car.onGround && car.jumps === 1 && bd < 4 && ball.pos.y > 2.5 && Math.random() < 0.25) c.jump = true;
+  }
+
+  /* ============================================================
+     CAMERAS
+     ============================================================ */
+  var camTarget = { a: new V3(), b: new V3() };
+  function updateCamera(cam, car, dt, key) {
+    var f = fwdOf(car.yaw);
+    var desired = new V3(), look = new V3();
+
+    if (G.ballCam) {
+      var away = new V3(car.pos.x - ball.pos.x, 0, car.pos.z - ball.pos.z);
+      if (away.lengthSq() < 1) away.copy(f).negate();
+      away.normalize();
+      desired.copy(car.pos).addScaledVector(away, 12.5);
+      desired.y = car.pos.y + 5.4;
+      look.copy(car.pos).lerp(ball.pos, 0.42);
+      look.y += 1.6;
+    } else {
+      desired.copy(car.pos).addScaledVector(f, -12.5);
+      desired.y = car.pos.y + 5.0;
+      look.copy(car.pos).addScaledVector(f, 9);
+      look.y += 2.2;
+    }
+    desired.y = Math.max(2.2, Math.min(desired.y, CEIL + 6));
+    desired.x = Math.max(-HX - GD - 6, Math.min(HX + GD + 6, desired.x));
+    desired.z = Math.max(-HZ - 10, Math.min(HZ + 10, desired.z));
+
+    var k = 1 - Math.exp(-9 * dt);
+    cam.position.lerp(desired, k);
+    camTarget[key].lerp(look, 1 - Math.exp(-12 * dt));
+
+    if (G.shake > 0.001) {
+      var m = G.shake * 0.5;
+      cam.position.x += (Math.random() - 0.5) * m;
+      cam.position.y += (Math.random() - 0.5) * m;
+      cam.position.z += (Math.random() - 0.5) * m;
+    }
+    cam.lookAt(camTarget[key]);
+  }
+
+  var menuAngle = 0;
+  function menuCamera(dt) {
+    menuAngle += dt * 0.09;
+    var r = 96;
+    camA.position.set(Math.cos(menuAngle) * r, 34 + Math.sin(menuAngle * 0.7) * 8, Math.sin(menuAngle) * r);
+    camA.lookAt(0, 5, 0);
+  }
+
+  /* ============================================================
+     VISUAL SYNC
+     ============================================================ */
+  function syncVisuals(dt) {
+    ballMesh.position.copy(ball.pos);
+    ballRing.position.set(ball.pos.x, 0.05, ball.pos.z);
+    var h = Math.max(0, ball.pos.y - BR);
+    ballRing.material.opacity = Math.max(0.08, 0.5 - h * 0.02);
+    var rs = 1 + h * 0.035;
+    ballRing.scale.set(rs, rs, rs);
+
+    cars.forEach(function (car) {
+      car.mesh.position.copy(car.pos);
+      car.mesh.rotation.set(0, car.yaw, 0);
+      if (car.pitchRoll) car.mesh.rotateX(car.pitchRoll * 1.5);
+      var ud = car.mesh.userData;
+      ud.flame.visible = car.boosting;
+      if (car.boosting) {
+        var s = 0.8 + Math.random() * 0.5;
+        ud.flame.scale.set(1, s, 1);
+        ud.lamp.intensity = 2.2;
+      } else {
+        ud.lamp.intensity = 0;
+      }
+      var spin = car.vel.length() * dt * 1.6;
+      for (var i = 0; i < ud.wheels.length; i++) ud.wheels[i].rotation.x -= spin;
+    });
+
+    endLightA.intensity = 1.4 + Math.sin(performance.now() / 420) * 0.25;
+    endLightB.intensity = 1.4 + Math.cos(performance.now() / 420) * 0.25;
+    sun.target.position.copy(ball.pos);
+
+    // engines, boost jet and crowd follow the action every frame
+    var live = G.state === "playing";
+    var humans = G.mode === "duo" ? [carA, carB] : [carA];
+    var tension = 0;
+    if (live) {
+      var toNet = HX - Math.abs(ball.pos.x);
+      tension = Math.max(0, Math.min(1, 1 - toNet / 26));
+      if (G.overtime) tension = Math.max(tension, 0.65);
+    }
+    SND.frame(dt, humans, tension, live);
+  }
+
+  /* ============================================================
+     HUD
+     ============================================================ */
+  var el = {
+    hud: document.getElementById("hud"),
+    overlay: document.getElementById("overlay"),
+    menuPanel: document.getElementById("menuPanel"),
+    resultPanel: document.getElementById("resultPanel"),
+    pausePanel: document.getElementById("pausePanel"),
+    scoreA: document.getElementById("scoreA"),
+    scoreB: document.getElementById("scoreB"),
+    clock: document.getElementById("clock"),
+    clockLbl: document.getElementById("clockLbl"),
+    clockbox: document.getElementById("clockbox"),
+    boostFill1: document.getElementById("boostFill1"),
+    boostFill2: document.getElementById("boostFill2"),
+    boostWrap2: document.getElementById("boostWrap2"),
+    boostName1: document.getElementById("boostName1"),
+    callout: document.getElementById("callout"),
+    calloutBig: document.getElementById("calloutBig"),
+    calloutSub: document.getElementById("calloutSub"),
+    tip: document.getElementById("tip"),
+    touch: document.getElementById("touch")
+  };
+
+  function fmtClock(t) {
+    t = Math.max(0, Math.ceil(t));
+    var m = Math.floor(t / 60), s = t % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function updateHUD() {
+    el.scoreA.textContent = G.scoreA;
+    el.scoreB.textContent = G.scoreB;
+    el.clock.textContent = G.overtime ? "+" + fmtClock(G.clock) : fmtClock(G.clock);
+    el.clockLbl.textContent = G.overtime ? "Golden goal" : "Match";
+    el.clockbox.classList.toggle("ot", G.overtime);
+    el.boostFill1.style.transform = "scaleX(" + (carA.boost / BOOST_MAX) + ")";
+    el.boostFill2.style.transform = "scaleX(" + (carB.boost / BOOST_MAX) + ")";
+  }
+
+  function showCallout(big, sub) {
+    el.calloutBig.textContent = big;
+    el.calloutSub.textContent = sub || "";
+    el.callout.hidden = false;
+  }
+  function hideCallout() { el.callout.hidden = true; }
+
+  function showTip(text, ms) {
+    el.tip.textContent = text;
+    el.tip.hidden = false;
+    clearTimeout(showTip._t);
+    showTip._t = setTimeout(function () { el.tip.hidden = true; }, ms || 6000);
+  }
+
+  /* ============================================================
+     MATCH FLOW
+     ============================================================ */
+  function resetCar(car, full) {
+    var dir = car.dir;
+    car.pos.set(-dir * (HX - 22), CAR.y, full ? 0 : car.pos.z * 0.2);
+    car.vel.set(0, 0, 0);
+    car.yaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    car.onGround = true; car.jumps = 0; car.pitchRoll = 0;
+    car.boost = BOOST_MAX * 0.85;
+  }
+
+  function kickoff() {
+    ball.pos.set(0, BR + 0.4, 0);
+    ball.vel.set(0, 0, 0);
+    cars.forEach(function (c) { resetCar(c, true); });
+    carA.pos.z = -3; carB.pos.z = 3;
+    camA.position.set(carA.pos.x - 12, 6, carA.pos.z);
+    camB.position.set(carB.pos.x + 12, 6, carB.pos.z);
+    camTarget.a.copy(ball.pos); camTarget.b.copy(ball.pos);
+    G.state = "countdown";
+    G.timer = 3.2;
+    G.countShown = -1;
+  }
+
+  function startMatch() {
+    G.scoreA = 0; G.scoreB = 0;
+    G.clock = G.length;
+    G.overtime = false;
+    cars.forEach(function (c) { c.stats = { touches: 0, top: 0, boostUsed: 0 }; });
+    carB.aiSkill = G.mode === "solo" ? SKILLS[G.skillKey] : null;
+    carA.aiSkill = null;
+    el.boostWrap2.hidden = G.mode !== "duo";
+    el.boostName1.textContent = G.mode === "duo" ? "Blaze boost" : "Boost";
+    el.hud.hidden = false;
+    el.overlay.style.display = "none";
+    el.touch.classList.toggle("on", G.touch && G.mode === "solo");
+    SND.unlock();
+    SND.setTrack("match");
+    kickoff();
+    showTip(G.mode === "duo" ? "Blaze: WASD · Space · Shift    —    Frost: Arrows · Enter · Right Shift" : "Hold Shift to boost. Tap Space twice to flip into the ball.", 7000);
+  }
+
+  function scoreGoal(who) {
+    if (who === "A") G.scoreA++; else G.scoreB++;
+    var color = who === "A" ? 0x2ea8ff : 0xff6b2c; // burst in the goal that was scored on
+    burst(ball.pos.clone(), who === "A" ? 0xff6b2c : 0x2ea8ff);
+    G.shake = 1;
+    sfxGoal();
+    updateHUD();
+    showCallout(who === "A" ? "BLAZE" : "FROST", "scores");
+    el.callout.style.color = who === "A" ? "#FF6B2C" : "#2EA8FF";
+    ball.vel.set(0, 0, 0);
+    G.state = "celebrate";
+    G.timer = 2.4;
+    if (G.overtime) {
+      G.timer = 2.4;
+      G.endAfterCelebrate = true;
+    }
+  }
+
+  function endMatch() {
+    G.state = "ended";
+    SND.whistle(true);
+    SND.setTrack("menu");
+    el.hud.hidden = true;
+    el.touch.classList.remove("on");
+    el.overlay.style.display = "flex";
+    el.menuPanel.hidden = true;
+    el.pausePanel.hidden = true;
+    el.resultPanel.hidden = false;
+    var a = G.scoreA, b = G.scoreB;
+    document.getElementById("resA").textContent = a;
+    document.getElementById("resB").textContent = b;
+    var title, eyebrow;
+    if (a === b) { title = "Dead level"; eyebrow = "Full time"; }
+    else if (a > b) { title = G.mode === "duo" ? "Blaze take it" : "You win"; eyebrow = G.overtime ? "Golden goal" : "Full time"; }
+    else { title = G.mode === "duo" ? "Frost take it" : "Bot wins this one"; eyebrow = G.overtime ? "Golden goal" : "Full time"; }
+    document.getElementById("resTitle").textContent = title;
+    document.getElementById("resEyebrow").textContent = eyebrow;
+    var me = G.mode === "duo" ? carA : carA;
+    document.getElementById("statShots").textContent = me.stats.touches;
+    document.getElementById("statTop").textContent = Math.round(me.stats.top);
+    document.getElementById("statBoost").textContent = Math.round(me.stats.boostUsed);
+  }
+
+  function togglePause() {
+    if (G.state === "playing" || G.state === "countdown") {
+      G.prev = G.state;
+      G.state = "paused";
+      SND.setPaused(true);
+      el.overlay.style.display = "flex";
+      el.menuPanel.hidden = true; el.resultPanel.hidden = true; el.pausePanel.hidden = false;
+      el.touch.classList.remove("on");
+    } else if (G.state === "paused") {
+      G.state = G.prev;
+      SND.setPaused(false);
+      el.overlay.style.display = "none";
+      el.touch.classList.toggle("on", G.touch && G.mode === "solo");
+    }
+  }
+
+  function toMenu() {
+    G.state = "menu";
+    SND.setTrack("menu");
+    el.hud.hidden = true;
+    el.touch.classList.remove("on");
+    el.overlay.style.display = "flex";
+    el.menuPanel.hidden = false;
+    el.resultPanel.hidden = true;
+    el.pausePanel.hidden = true;
+    ball.pos.set(0, BR, 0); ball.vel.set(0, 0, 0);
+    cars.forEach(function (c) { resetCar(c, true); });
+  }
+
+  /* ============================================================
+     MAIN UPDATE
+     ============================================================ */
+  function physics(dt) {
+    readInput();
+    if (G.mode === "solo" && carB.aiSkill) botControls(carB, dt);
+
+    var steps = Math.min(5, Math.max(1, Math.ceil(dt / 0.0085)));
+    var h = dt / steps;
+    for (var s = 0; s < steps; s++) {
+      stepCar(carA, h);
+      stepCar(carB, h);
+      carCarCollision(carA, carB);
+      stepBall(h);
+      carBallCollision(carA);
+      carBallCollision(carB);
+
+      // goal check
+      if (Math.abs(ball.pos.x) > HX + BR * 0.35 && Math.abs(ball.pos.z) < GZ && ball.pos.y < GH) {
+        scoreGoal(ball.pos.x > 0 ? "A" : "B");
+        return;
+      }
+    }
+  }
+
+  function update(dt) {
+    if (G.state === "menu") {
+      menuCamera(dt);
+      stepParticles(dt);
+      syncVisuals(dt);
+      return;
+    }
+    if (G.state === "paused") { syncVisuals(dt); return; }
+
+    if (G.state === "countdown") {
+      G.timer -= dt;
+      var n = Math.ceil(G.timer - 0.2);
+      if (n !== G.countShown) {
+        G.countShown = n;
+        if (n > 0) { showCallout(String(n), "get ready"); el.callout.style.color = "#E9EEF8"; sfxTick(false); }
+      }
+      if (G.timer <= 0.2 && G.timer > 0) { showCallout("GO", ""); el.callout.style.color = "#FFC24B"; }
+      if (G.timer <= 0) { hideCallout(); G.state = "playing"; SND.count(true); SND.whistle(false); }
+      readInput();
+      // cars settle but do not drive during the countdown
+      cars.forEach(function (c) { c.ctl.th = 0; c.ctl.st = 0; c.ctl.jump = false; c.ctl.boost = false; });
+    } else if (G.state === "playing") {
+      physics(dt);
+      G.clock = G.overtime ? G.clock + dt : G.clock - dt;
+      if (!G.overtime && G.clock <= 0) {
+        G.clock = 0;
+        if (G.scoreA === G.scoreB) {
+          G.overtime = true; G.clock = 0;
+          showCallout("OVERTIME", "next goal wins");
+          el.callout.style.color = "#FFC24B";
+          setTimeout(hideCallout, 2200);
+        } else {
+          endMatch();
+        }
+      }
+    } else if (G.state === "celebrate") {
+      G.timer -= dt;
+      ball.vel.multiplyScalar(Math.exp(-3 * dt));
+      if (G.timer <= 0) {
+        hideCallout();
+        if (G.endAfterCelebrate) { G.endAfterCelebrate = false; endMatch(); }
+        else kickoff();
+      }
+    }
+
+    G.shake = Math.max(0, G.shake - dt * 2.2);
+    stepParticles(dt);
+    syncVisuals(dt);
+    updateHUD();
+
+    var dtc = Math.min(dt, 0.05);
+    if (G.mode === "duo") {
+      updateCamera(camA, carA, dtc, "a");
+      updateCamera(camB, carB, dtc, "b");
+    } else {
+      updateCamera(camA, carA, dtc, "a");
+    }
+  }
+
+  /* ============================================================
+     RENDER + RESIZE
+     ============================================================ */
+  var W = 1, H = 1;
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    renderer.setSize(W, H, false);
+    applyAspect();
+  }
+  function applyAspect() {
+    if (G.mode === "duo" && G.state !== "menu") {
+      camA.aspect = (W / 2) / H; camB.aspect = (W / 2) / H;
+    } else {
+      camA.aspect = W / H; camB.aspect = W / H;
+    }
+    camA.updateProjectionMatrix(); camB.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+
+  function render() {
+    if (G.mode === "duo" && G.state !== "menu") {
+      var half = Math.floor(W / 2);
+      renderer.setScissorTest(true);
+      renderer.setViewport(0, 0, half, H);
+      renderer.setScissor(0, 0, half, H);
+      renderer.render(scene, camA);
+      renderer.setViewport(half, 0, W - half, H);
+      renderer.setScissor(half, 0, W - half, H);
+      renderer.render(scene, camB);
+      renderer.setScissorTest(false);
+    } else {
+      renderer.setViewport(0, 0, W, H);
+      renderer.render(scene, camA);
+    }
+  }
+
+  var last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.06) dt = 0.06;
+    update(dt);
+    render();
+  }
+
+  /* ============================================================
+     MENU WIRING
+     ============================================================ */
+  document.querySelectorAll(".seg").forEach(function (seg) {
+    seg.addEventListener("click", function (e) {
+      var btn = e.target.closest("button");
+      if (!btn) return;
+      seg.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+      var opt = seg.getAttribute("data-opt");
+      var val = btn.getAttribute("data-value");
+      if (opt === "mode") {
+        G.mode = val;
+        document.getElementById("rowSkill").style.display = val === "solo" ? "" : "none";
+        document.getElementById("p2keys").hidden = val !== "duo";
+        document.getElementById("p1extra").hidden = val === "duo";
+        document.getElementById("p1head").textContent = val === "duo" ? "Blaze — player 1" : "Blaze — you";
+        applyAspect();
+      } else if (opt === "skill") {
+        G.skillKey = val;
+      } else if (opt === "length") {
+        G.length = parseInt(val, 10);
+      }
+      SND.unlock();
+      SND.ui();
+    });
+  });
+
+  /* sound on/off — the browser only lets audio start after a real click,
+     so the first tap anywhere also wakes the music up */
+  var muteBtn = document.getElementById("muteBtn");
+  function setMute(off) {
+    muteBtn.classList.toggle("off", off);
+    muteBtn.setAttribute("aria-pressed", String(off));
+    muteBtn.setAttribute("aria-label", off ? "Turn sound on" : "Turn sound off");
+  }
+  muteBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    setMute(SND.toggleMute());
+  });
+  setMute(SND.isMuted());
+
+  var musicKicked = false;
+  function firstGesture() {
+    SND.unlock();
+    if (!musicKicked) {
+      musicKicked = true;
+      SND.setTrack(G.state === "playing" ? "match" : "menu");
+    }
+  }
+  ["pointerdown", "keydown", "touchstart"].forEach(function (ev) {
+    window.addEventListener(ev, firstGesture, { passive: true });
+  });
+
+  document.getElementById("startBtn").addEventListener("click", function () { applyAspect(); startMatch(); });
+  document.getElementById("againBtn").addEventListener("click", function () { applyAspect(); startMatch(); });
+  document.getElementById("menuBtn").addEventListener("click", toMenu);
+  document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  document.getElementById("quitBtn").addEventListener("click", toMenu);
+
+  G.touch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  if (G.touch) {
+    showTip._t = 0;
+    document.getElementById("p1extra").innerHTML =
+      '<p class="keyhead" style="color:var(--muted)">On a phone</p><dl><dt><kbd>Touch</kbd></dt><dd>On-screen pedals appear once you kick off</dd></dl>';
+  }
+
+  // start at rest: arena on show, menu on top
+  resetCar(carA, true); resetCar(carB, true);
+  syncVisuals(0.016);
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
